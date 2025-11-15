@@ -1,0 +1,47 @@
+# portal-backend/docker-compose.yml
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: portal-db
+    restart: always
+    environment:
+      POSTGRES_USER: portaluser
+      POSTGRES_PASSWORD: portalpass
+      POSTGRES_DB: portaldb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - portalnet
+
+  backend:
+    build: .
+    container_name: portal-backend
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    networks:
+      - portalnet
+
+  adminer:
+    image: adminer
+    container_name: portal-adminer
+    restart: always
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+    networks:
+      - portalnet
+
+volumes:
+  postgres_data:
+
+networks:
+  portalnet:
+    driver: bridge
