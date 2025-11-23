@@ -35,8 +35,8 @@ module.exports = (pool) => {
 
   // Rotas públicas
   router.get("/", withPool(getUsers));
-  router.post("/", withPool(createUser));
-  router.post("/login", withPool(loginUser));
+  router.post("/", (req, res) => createUser(req, res, pool));
+  router.post("/login", (req, res) => loginUser(req, res, pool));
 
   // Rotas protegidas
   router.get("/me", authenticate, withPool(async (req, res) => {

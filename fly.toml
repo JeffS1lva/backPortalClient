@@ -1,31 +1,22 @@
-# fly.toml — versão corrigida e otimizada para o seu backend Node.js
-app = "portal-nexion"
-primary_region = "gru"
+# fly.toml app configuration file generated for portal-nexion on 2025-11-23T16:10:55-03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-# Força o Fly a usar o seu Dockerfile (ignora o docker-compose)
+app = 'portal-nexion'
+primary_region = 'gru'
+
 [build]
-  dockerfile = "Dockerfile"
 
-# Variáveis de ambiente globais
-[env]
-  NODE_ENV = "production"
-  PORT = "3000"
-
-# Configuração do proxy HTTP do Fly.io
 [http_service]
-  internal_port = 3000        # ← porta que seu Express escuta DENTRO do container
+  internal_port = 3000
   force_https = true
-  auto_stop_machines = false  # não deixa dormir (importante em produção)
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1    # mantém pelo menos 1 instância sempre ligada
+  min_machines_running = 0
+  processes = ['app']
 
-  [http_service.concurrency]
-    type = "connections"
-    hard_limit = 1000
-    soft_limit = 800
-
-# Máquina (plano gratuito é suficiente)
 [[vm]]
-  cpu_kind = "shared"
+  memory = '1gb'
+  cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 256
