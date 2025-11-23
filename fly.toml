@@ -1,23 +1,31 @@
-# fly.toml app configuration file generated for adminer-nexion-sparkling-frog-6628 on 2025-11-17T21:03:36-03:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
+# fly.toml — versão corrigida e otimizada para o seu backend Node.js
 app = "portal-nexion"
-primary_region = 'gru'
+primary_region = "gru"
 
+# Força o Fly a usar o seu Dockerfile (ignora o docker-compose)
 [build]
-  image = 'docker.io/adminer'
+  dockerfile = "Dockerfile"
 
+# Variáveis de ambiente globais
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+
+# Configuração do proxy HTTP do Fly.io
 [http_service]
-  internal_port = 8082
+  internal_port = 3000        # ← porta que seu Express escuta DENTRO do container
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = false  # não deixa dormir (importante em produção)
   auto_start_machines = true
-  min_machines_running = 0
-  processes = ['app']
+  min_machines_running = 1    # mantém pelo menos 1 instância sempre ligada
 
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 1000
+    soft_limit = 800
+
+# Máquina (plano gratuito é suficiente)
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
+  cpu_kind = "shared"
   cpus = 1
+  memory_mb = 256

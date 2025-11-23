@@ -1,4 +1,3 @@
-require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
@@ -9,24 +8,22 @@ const app = express();
 // CORS
 app.use(cors({
   origin: (origin, callback) => {
-    // Permite requisições sem origin (ex: mobile, curl, Postman)
     if (!origin) return callback(null, true);
 
     const allowedOrigins = [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
       "https://portal-nexion.vercel.app",
-      "https://www.portal-nexion.vercel.app", // por segurança
-      "https://portal-nexion.fly.dev",        // se acessar direto
+      "https://www.portal-nexion.vercel.app",
+      "https://portal-nexion.fly.dev",
     ];
 
-    // Verifica se a origin está na lista (exata ou com/vem barra)
     if (allowedOrigins.some(allowed => 
       origin === allowed || origin === allowed + "/" || origin + "/" === allowed
     )) {
       callback(null, true);
     } else {
-      console.log("CORS bloqueado para origin:", origin); // ← isso ajuda MUITO a debugar
+      console.log("CORS bloqueado para origin:", origin);
       callback(new Error("Not allowed by CORS"));
     }
   },
@@ -38,25 +35,67 @@ app.use(cors({
 
 app.use(express.json());
 
-// Banco
+// CORREÇÃO PRINCIPAL: ssl: false FORÇADO para Postgres self-hosted no Fly.io
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+  ssl: false   // ← ESSA LINHA RESOLVE TODOS OS PROBLEMAS NO FLY
 });
 
-// Teste conexão
-pool.connect((err) => {
-  if (err) {
-    console.error("Erro no banco:", err.stack);
-    process.exit(1);
-  } else {
-    console.log("Banco conectado");
-  }
+pool.on('error', (err) => {
+  console.error('Erro inesperado no pool do PostgreSQL:', err.stack);
 });
+
+async function connectWithRetry() {
+  for (let i = 0; i < 10; i++) {
+    try {
+      const client = await pool.connect();
+      console.log('Banco conectado com sucesso!');
+      client.release();
+      return;
+    } catch (err) {
+      console.log(`Tentativa ${i + 1}/10 de conectar ao banco...`);
+      if (i === 9) {
+        console.error('Falha ao conectar ao banco após várias tentativas:', err.message);
+      } else {
+        await new Promise(res => setTimeout(res, 5000));
+      }
+    }
+  }
+}
 
 app.use("/users", userRoutes(pool));
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor na porta ${PORT}`);
+// Health check
+app.get("/health", async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ 
+      status: "OK", 
+      message: "Backend + PostgreSQL conectados (Fly.io gru)", 
+      time: new Date().toISOString() 
+    });
+  } catch (err) {
+    res.status(500).json({ 
+      status: "ERROR", 
+      message: "Falha na conexão com o banco", 
+      error: err.message 
+    });
+  }
 });
+
+// Rota raiz (opcional)
+app.get("/", (req, res) => {
+  res.json({ message: "Backend Nexion rodando no Fly.io" });
+});
+
+// Start do servidor
+const PORT = process.env.PORT || 8080;
+
+app.listen(PORT, () => {
+  console.log(`Backend rodando na porta ${PORT}`);
+  console.log(`Health → https://portal-nexion.fly.dev/health`);
+  console.log(`Users  → https://portal-nexion.fly.dev/users`);
+});
+
+// Inicia tentativa de conexão
+connectWithRetry();
